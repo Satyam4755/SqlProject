@@ -8,20 +8,31 @@ const Reserved = require('../models/reserved')
 
 
 exports.homePage = (req, res, next) => {
-    let opacity = {}; // Define opacity as an object
+    let opacity = {};
 
-    homes.fetch().then(([registerHomes])=>{
-        // console.log(registerHomes);
-        favourite.getFavourite(favourites => {  // Fetch favourite home IDs
-            registerHomes.forEach(home => {
-                opacity[home.id] = favourites.includes(home.id) ? 0 : 10; // Assign opacity per home
-            });
-
+    homes.fetch()
+        .then(([registerHomes]) => {
+            favourite.getFavourite()
+                .then(([rows]) => {
+                    const favouriteHomeIds = rows.map(row => row.homeId);
+                    registerHomes.forEach(home => {
+                        opacity[home.id] = favouriteHomeIds.includes(home.homeId) ? 0 : 10;
+                    });
+                    res.render('./store/home', {
+                        homes: registerHomes,
+                        title: "Home Page",
+                        opacity: opacity
+                    });
+                })
+                .catch((error) => {
+                    console.error("Favourite fetch error:", error);
+                    res.status(500).send("Error loading favourite data.");
+                });
+        })
+        .catch((error) => {
+            console.error("Homes fetch error:", error);
+            res.status(500).send("Error loading homes.");
         });
-        res.render('./store/home', { homes: registerHomes, title: "Home Page", opacity: opacity });
-    }).catch((error)=>{
-        console.log("error", error)
-    })
 };
 
 // const {registerHomes}=require('../routes/host')--------iski jarurat nhi padegi kyunki registerHomes isi file me declare kiya gaya hai
@@ -47,34 +58,45 @@ exports.homeDetails = (req, res, next) => {
 // ************************************VERY IMPORTANT********************************
 // favourite list
 exports.favouriteList = (req, res, next) => {
-    favourite.getFavourite(favourites => {
-        homes.fetch().then(([registerHomes])=>{
-            const matchedHomes = registerHomes.filter(regHome => {
-                return favourites.includes(regHome.id)
-            })
-            res.render('./store/favourite_list', { homes: matchedHomes, title: "favourite list" })
+    favourite.getFavourite()
+        .then(([rows]) => {
+            const favouriteHomeIds = rows.map(row => row.homeId); // extract homeId from DB rows
+            homes.fetch().then(([registerHomes]) => {
+                const matchedHomes = registerHomes.filter(regHome => {
+                    return favouriteHomeIds.includes(regHome.homeId);
+                });
+                res.render('./store/favourite_list', { homes: matchedHomes, title: "favourite list" });
+            });
         })
-    })
-
-
-}
+        .catch(err => {
+            console.log("Error fetching favourites:", err);
+            res.status(500).send("Something went wrong.");
+        });
+};
 // post favourite list
 exports.postfavouriteList = (req, res, next) => {
     const homeId = req.body.homeId;
-    favourite.addFavourite(homeId, err => {
-        if (err) {
-            console.log("error in adding favourite")
-        }
-        res.redirect('/user/favourite_list')
-    })
-}
-// unfavourite home
-exports.postUnfavourite=(req,res,next)=>{
-    const homeId=req.params.homeId
-    favourite.unfavourite(homeId)
-    res.redirect('/user/favourite_list')
-}
 
+    favourite.addFavourite(homeId)
+        .then(() => {
+            res.redirect('/user/favourite_list');
+        })
+        .catch((err) => {
+            console.error("Error adding favourite:", err);
+            res.status(400).send("Already added to favourites");
+        });
+};
+// unfavourite home
+exports.postUnfavourite = (req, res, next) => {
+    const homeId = req.params.homeId;
+    favourite.unfavourite(homeId, (err) => {
+        if (err) {
+            console.error("Error unfavouriting home:", err);
+            return res.status(500).send("Unfavourite failed.");
+        }
+        res.redirect('/user/favourite_list');
+    });
+};
 // reserved
 exports.reserved = (req, res, next) => {
     Reserved.getReserve(reserves => {

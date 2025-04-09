@@ -1,4 +1,4 @@
-📦 SQL CRUD Application
+#📦 SQL CRUD Application
 
 This project is a basic SQL-based CRUD application designed to demonstrate how to Create, Read, Update, and Delete data from a database. It’s perfect for beginners who are learning how SQL integrates with backend logic to manage structured data.
 
